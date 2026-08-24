@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prometheus Lab</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main>
+    <h1>Prometheus Lab</h1>
+    <p>Simple frontend for Kubernetes observability testing.</p>
+    <button id="request">Call backend</button>
+    <pre id="output">Ready.</pre>
+  </main>
+
+  <script>
+    document.getElementById("request").addEventListener("click", async () => {
+      const output = document.getElementById("output");
+      try {
+        const response = await fetch("/api/hello");
+        const data = await response.json();
+        output.textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        output.textContent = "Backend request failed: " + error.message;
+      }
+    });
+  </script>
+</body>
+</html>

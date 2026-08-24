@@ -1,0 +1,107 @@
+alloy:
+  configMap:
+    create: true
+
+    content: |-
+      logging {
+        level  = "info"
+        format = "logfmt"
+      }
+
+      // =========================================================
+      // 1. Discover all Kubernetes pods
+      // =========================================================
+
+      discovery.kubernetes "pods" {
+        role = "pod"
+      }
+
+      // =========================================================
+      // 2. Convert Kubernetes metadata into Loki labels
+      // =========================================================
+
+      discovery.relabel "pod_logs" {
+        targets = discovery.kubernetes.pods.targets
+
+        // Namespace
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+
+        // Pod
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label  = "pod"
+        }
+
+        // Container
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          target_label  = "container"
+        }
+
+        // Node
+        rule {
+          source_labels = ["__meta_kubernetes_pod_node_name"]
+          target_label  = "node"
+        }
+
+        // app label
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app"]
+          target_label  = "app"
+        }
+
+        // app.kubernetes.io/name
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+          target_label  = "app_name"
+        }
+
+        // app.kubernetes.io/component
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_component"]
+          target_label  = "component"
+        }
+
+        // Job
+        rule {
+          source_labels = ["__meta_kubernetes_pod_controller_name"]
+          target_label  = "controller"
+        }
+      }
+
+      // =========================================================
+      // 3. Read Kubernetes pod logs
+      // =========================================================
+
+      loki.source.kubernetes "pods" {
+        targets    = discovery.relabel.pod_logs.output
+        forward_to = [loki.process.pod_logs.receiver]
+      }
+
+      // =========================================================
+      // 4. Process logs
+      // =========================================================
+
+      loki.process "pod_logs" {
+
+        stage.static_labels {
+          values = {
+            job = "kubernetes-pods",
+          }
+        }
+
+        forward_to = [loki.write.default.receiver]
+      }
+
+      // =========================================================
+      // 5. Send logs to Loki
+      // =========================================================
+
+      loki.write "default" {
+        endpoint {
+          url = "http://loki.observability.svc.cluster.local:3100/loki/api/v1/push"
+        }
+      }
